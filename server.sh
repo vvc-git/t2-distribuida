@@ -1,4 +1,6 @@
 #!/bin/bash
+#limpa o terminal
+clear
 
 # Porta a ser verificada
 PORT=65432

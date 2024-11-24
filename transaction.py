@@ -1,21 +1,25 @@
 import json
+import os
 import random
 import socket
 import threading
+from config import Config
 from operation import *
+from dotenv import load_dotenv
 
 class Transaction:
-    def __init__(self, operations):
-        # Lista de servidores disponíveis
-        self.servers = ['Server 1']
-        # Seleciona aleatoriamente um servidor
-        self.selected_server = random.choice(self.servers)
-        # Conjuntos de leitura (rs) e escrita (ws)
-        self.operations = operations
-        self.ws = {}  # Conjunto de escritas
-        self.rs = {}  # Conjunto de leituras
-        self.result = None
-        self.cid = 0
+    def __init__(self, cid, operations, servers):
+      self.cid = cid
+      self.operations = operations
+      # Lista de servidores disponíveis
+      self.servers = servers
+      # Seleciona aleatoriamente um servidor
+      self.selected_server = "SERVER" + str(random.randint(0, len(self.servers)- 1))
+      # Conjuntos de leitura (rs) e escrita (ws)
+      self.ws = {}  # Conjunto de escritas
+      self.rs = {}  # Conjunto de leituras
+      self.result = None
+
 
     def send(self, m):
       # Cria o socket (IPv4, TCP)
@@ -59,17 +63,20 @@ def main():
       Operation(OperationType.READ, item="chave1"),
     ]
 
-    # Cria as transações
-    t1 = Transaction(operacoes_transacao1)
+    config = Config()
+    print(config.clients)
+    print(config.servers)
+
+    t = Transaction(config.clients["CLIENT1"], operacoes_transacao1, config.servers)
 
     # Cria threads para executar transações concorrentes
-    thread1 = threading.Thread(target=t1.execute)
+    thread = threading.Thread(target=t.execute)
 
     # Inicia as threads
-    thread1.start()
+    thread.start()
 
     # Aguarda as threads terminarem
-    thread1.join()
+    thread.join()
 
 
 if __name__ == "__main__":

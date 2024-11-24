@@ -1,6 +1,8 @@
+import json
 import random
-from operation import *
 import socket
+import threading
+from operation import *
 
 class Transaction:
     def __init__(self, operations):
@@ -23,7 +25,7 @@ class Transaction:
           # Conecta ao servidor
           s.connect((host, port))
           # É bloqueante = espera até que todos os dados sejam enviados. 
-          s.sendall(m.encode('utf-8'))
+          s.sendall(m)
           # Recebe a resposta
           data = s.recv(1024)
           print(f"Resposta do servidor: {data.decode()}")
@@ -42,7 +44,8 @@ class Transaction:
               print("Achou localmente")
             # Se NÃO foi alterado localmente, então SOLICITA do servidor.
             else:
-              self.send("OperationType.READ" + '&' + op.get_item() + '&' + str(self.cid))
+              m = {"type": "read", "item": op.get_item(), "cid":self.cid}
+              self.send(json.dumps(m).encode())
           elif op.get_type() == OperationType.COMMIT:
             print("Fazer a difusão atômica")
             break
@@ -50,6 +53,25 @@ class Transaction:
             self.result = OperationType.ABORT
       return False
 
+def main():
+    # Define as operações das transações
+    operacoes_transacao1 = [
+      Operation(OperationType.READ, item="chave1"),
+    ]
+
+    # Cria as transações
+    t1 = Transaction(operacoes_transacao1)
+
+    # Cria threads para executar transações concorrentes
+    thread1 = threading.Thread(target=t1.execute)
+
+    # Inicia as threads
+    thread1.start()
+
+    # Aguarda as threads terminarem
+    thread1.join()
 
 
+if __name__ == "__main__":
+    main()
 

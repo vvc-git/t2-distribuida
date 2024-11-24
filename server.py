@@ -1,13 +1,14 @@
+from config import Config
 from operation import *
 import socket
 import json
 
 class Server:
-  def __init__(self):
+  def __init__(self, host, port):
     self.last_commit = 0
     self.db = {"chave1": ("Teste", "Version123")}
-    self.host = '127.0.0.1'
-    self.port=65432
+    self.host = host
+    self.port = port
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.s.bind((self.host, self.port))
     self.s.listen(5)
@@ -44,6 +45,10 @@ class Server:
 
 # Executa o servidor
 if __name__ == "__main__":
-  # kill_process_by_port(65432)
-  s1 = Server()
+  # Seta os IP e Portas 
+  config = Config()
+  host = config.servers["SERVER1"]["HOST"]
+  port = config.servers["SERVER1"]["PORT"]
+
+  s1 = Server(host, port)
   s1.execute()

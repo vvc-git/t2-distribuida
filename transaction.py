@@ -63,9 +63,8 @@ def main():
       Operation(OperationType.READ, item="chave1"),
     ]
 
+    # Seta os IP e Portas 
     config = Config()
-    print(config.clients)
-    print(config.servers)
 
     t = Transaction(config.clients["CLIENT1"], operacoes_transacao1, config.servers)
 

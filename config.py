@@ -9,6 +9,7 @@ class Config:
     load_dotenv(dotenv_path="/home/victor/Desktop/2024.2/distribuida/t2-distribuida/config.env")
     self.servers = self._load_servers()
     self.clients = self._load_clients()
+    self.sequencer = self._load_sequencer()
 
   def _load_clients(self):
     """
@@ -20,6 +21,18 @@ class Config:
       if key.startswith("CLIENT"):  # Filtra as variáveis que começam com "CLIENT"
           clients[key] = self._parse_env_variable(value)
     return clients
+  
+  def _load_sequencer(self):
+    """
+    Encontra todas as variáveis de ambiente que começam com 'CLIENT'
+    e as processa em um dicionário.
+    """
+    sequencer = {}
+    for key, value in os.environ.items():
+      if key.startswith("SEQUENCER"):  # Filtra as variáveis que começam com "CLIENT"
+          sequencer[key] = self._parse_env_variable(value)
+    return sequencer
+
 
   def _load_servers(self):
     """
@@ -47,8 +60,10 @@ class Config:
         val = val.strip()
         
         # Verifica se a chave é PORT e converte o valor para inteiro
-        if key.upper() == "PORT":
-            val = int(val)
+        if key.upper() == "TCPPORT":
+          val = int(val)
+        if key.upper() == "UDPPORT":
+          val = int(val)
         
         config[key] = val
     return config

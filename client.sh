@@ -1,3 +1,3 @@
 #!/bin/bash
 clear
-python3 transaction.py
+python3 client.py

@@ -3,7 +3,7 @@
 clear
 
 # Lista de portas a serem verificadas
-PORTS=(2000, 3000) # Adicione as portas desejadas aqui
+PORTS=(2001, 3001) # Adicione as portas desejadas aqui
 
 # Loop para verificar cada porta na lista
 for PORT in "${PORTS[@]}"; do
@@ -17,4 +17,4 @@ for PORT in "${PORTS[@]}"; do
 done
 
 # Executa o servidor Python
-python3 server.py
+python3 sequencer.py

@@ -10,8 +10,8 @@ class Sequencer():
     super().__init__()
     self.host = host
     self.udp_port = udp_port
-
     self.seq_number = 0
+
     # Criando sockets TCP e UDP
     self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -25,7 +25,8 @@ class Sequencer():
       host = ipport["HOST"]
       port = ipport["UDPPORT"]
       self.udp_socket.sendto(json.dumps((m, self.seq_number, addr)).encode(), (host, port))
-      print("Mensagem COMMIT (UDP) enviada para os Servidores", host + ":" + str(port))
+      print(f"send[={m['type']}; de={addr[1]}; para={port}] t.id={m['transaction_id']}]")
+
 
 
   def handle_udp(self):
@@ -33,7 +34,6 @@ class Sequencer():
     while True:
         data, addr = self.udp_socket.recvfrom(1024)
         m = json.loads(data.decode())
-        print(f"Mensagem UDP recebida de {addr}: {m}")
         self.handle_message(m, addr)
 
         # ----------- SEQUENCIADOR NÃO RESPONDE --------------

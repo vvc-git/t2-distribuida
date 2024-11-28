@@ -3,12 +3,11 @@ from config import Config
 from transaction import *
 import socket
 import json
-from atomic_broadcast import AtomicBroadcast
 import threading
 import sys
 
 
-class Server(AtomicBroadcast):
+class Server():
   def __init__(self, host, tcp_port, udp_port):
     super().__init__()
     self.last_commit = 0
@@ -38,10 +37,10 @@ class Server(AtomicBroadcast):
             conn, addr = self.tcp_socket.accept()
             data = conn.recv(1024).decode()
             m = json.loads(data)
-            print(f"request[=read; de={addr[1]}; para={self.tcp_port}]")
+            print(f"send[=read; de={addr[1]}; para={self.tcp_port}]")
             response = json.dumps(self.handle_message(m))
             conn.sendall(response.encode())
-            print(f"response[=read; de={self.tcp_port}; para={addr[1]}]")
+            print(f"recv[=read; de={self.tcp_port}; para={addr[1]}]")
             conn.close()
 
   def handle_udp(self):
@@ -49,13 +48,13 @@ class Server(AtomicBroadcast):
       while True:
           data, addr = self.udp_socket.recvfrom(1024)
           m, seq_number, client_ip = json.loads(data.decode())
-          print(f"request[={m['type']}; de={addr[1]}; para={self.udp_port}]")
+          print(f"send[={m['type']}; de={addr[1]}; para={self.udp_port}, t.id={m['transaction_id']}]")
           
           h = self.handle_message(m)
 
           # Respondendo diretamente para o cliente.
           self.udp_socket.sendto(json.dumps(h).encode(), (client_ip[0], client_ip[1]))
-          print(f"response[={h['type']}; de={self.udp_port}; para={client_ip[1]}]")
+          print(f"recv[={h['type']}; de={self.udp_port}; para={client_ip[1]}]")
 
   def start(self):
       # Criando threads para TCP e UDP
@@ -74,13 +73,11 @@ class Server(AtomicBroadcast):
       if m["type"] == OperationType.READ.value:
         (value, version) = self.db[m["item"]]
         m = {"value": value, "version": version}
-        print("mensagem[=READ]")
         return m
       else:
         for item, value_version in m["rs"].items():
           if self.db[item][1] > value_version['version']:
             m = {"type": OperationType.ABORT.value}
-            print("mensagem[=ABORT]")
             return m
         for item, value in m["ws"].items():
           version = self.db[item][1] + 1 
@@ -88,9 +85,7 @@ class Server(AtomicBroadcast):
           self.db[item] = (update, version)
 
         m = {"type": OperationType.COMMIT.value}
-        print("mensagem[=COMMIT]")
         return m
-           
           
 # Executa o servidor
 if __name__ == "__main__":

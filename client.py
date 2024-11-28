@@ -30,7 +30,7 @@ class Client():
 
 
     def read_from_sever(self, item):
-      m = {"type": "read", "item": item, "cid": self.cid}
+      m = {"type": OperationType.READ.value, "item": item, "cid": self.cid}
       # Cria o socket (IPv4, TCP)
       with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
           
@@ -43,17 +43,18 @@ class Client():
           # Conecta ao servidor
           s.connect((host, port))
           
-          # É bloqueante. Espera até que todos os dados sejam enviados. 
+          # É bloqueante. Espera até que todos os dados sejam enviados.
+          print(f"send[={OperationType.READ.value}; de={self.tcp_port}; para={port}]")
           s.sendall(json.dumps(m).encode())
-          print(f"send[=read; de={self.tcp_port}; para={port}]")
+          
           
           # Recebe a resposta
           data = json.loads(s.recv(1024).decode())
-          print(f"recv[=read; de={port}; para={self.tcp_port}]")
+          print(f"recv[={OperationType.READ.value}; de={port}; para={self.tcp_port}]")
           return data
       
     def commit_to_sever(self, transaction_id):
-      m = {"type": "commit", "cid": self.cid, "transaction_id": int(transaction_id),"rs": self.rs, "ws": self.ws}
+      m = {"type": OperationType.COMMIT.value, "cid": self.cid, "transaction_id": int(transaction_id),"rs": self.rs, "ws": self.ws}
       # Cria o socket (IPv4, TCP)
       with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
           
@@ -76,23 +77,23 @@ class Client():
     def execute(self):
       for op in self.transaction.operations:
           # Se é um operação de Escrita, então salva em ws
-          if op.get_type() == OperationType.WRITE:
-            self.ws[op.get_item()] = op.get_value()
+          if op.type == OperationType.WRITE:
+            self.ws[op.item] = op.value
           
           # Se é um operação de Leitura, então verifica se já foi alterado localmente.
-          elif op.get_type() == OperationType.READ:
+          elif op.type == OperationType.READ:
             # Se foi alterado localmente, então pega esse valor local.
-            if op.get_item() in self.ws:
+            if op.item in self.ws:
               # A principio, não precisamos fazer nada. A transação usaria já o valor mais recente.
               print("Leu localmente")
               pass
             # Se NÃO foi alterado localmente, então SOLICITA do servidor.
             else:
-              data = self.read_from_sever(op.get_item())
-              self.rs[op.get_item()] = data
+              data = self.read_from_sever(op.item)
+              self.rs[op.item] = data
           
           # Se é um operação de COMMIT, precisamos fazer uma difusão atômica
-          elif op.get_type() == OperationType.COMMIT:
+          elif op.type == OperationType.COMMIT:
             self.transaction.result = self.commit_to_sever(self.transaction.id)  
             if self.transaction.result != OperationType.ABORT.value:
               self.ws = {}

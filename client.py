@@ -3,7 +3,7 @@ import os
 import random
 import socket
 import threading
-import testes as t
+import testes.teste1 as t
 from config import Config
 from transaction import *
 

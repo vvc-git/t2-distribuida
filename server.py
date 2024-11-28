@@ -1,15 +1,18 @@
+from time import sleep
 from config import Config
 from transaction import *
 import socket
 import json
 from atomic_broadcast import AtomicBroadcast
 import threading
+import sys
+
 
 class Server(AtomicBroadcast):
   def __init__(self, host, tcp_port, udp_port):
     super().__init__()
     self.last_commit = 0
-    self.db = {"chave1": ("Teste", 0)}
+    self.db = {"chave1": ("Teste", 0), "chave2": ("Teste", 0)}
     self.host = host
     self.tcp_port = tcp_port
     self.udp_port = udp_port
@@ -33,12 +36,12 @@ class Server(AtomicBroadcast):
         print(f"Servidor TCP escutando em {self.host}:{self.tcp_port}")
         while True:
             conn, addr = self.tcp_socket.accept()
-            print(f"Nova conexão TCP de {addr}")
             data = conn.recv(1024).decode()
             m = json.loads(data)
-            print(f"Mensagem TCP recebida: {m}")
+            print(f"request[=read; de={addr[1]}; para={self.tcp_port}]")
             response = json.dumps(self.handle_message(m))
             conn.sendall(response.encode())
+            print(f"response[=read; de={self.tcp_port}; para={addr[1]}]")
             conn.close()
 
   def handle_udp(self):
@@ -46,13 +49,13 @@ class Server(AtomicBroadcast):
       while True:
           data, addr = self.udp_socket.recvfrom(1024)
           m, seq_number, client_ip = json.loads(data.decode())
-          print(f"Mensagem UDP recebida de {addr}: {m}")
+          print(f"request[={m['type']}; de={addr[1]}; para={self.udp_port}]")
           
-          response = json.dumps(self.handle_message(m))
-          print("response", response)
+          h = self.handle_message(m)
 
           # Respondendo diretamente para o cliente.
-          self.udp_socket.sendto(response.encode(), client_ip)
+          self.udp_socket.sendto(json.dumps(h).encode(), (client_ip[0], client_ip[1]))
+          print(f"response[={h['type']}; de={self.udp_port}; para={client_ip[1]}]")
 
   def start(self):
       # Criando threads para TCP e UDP
@@ -70,35 +73,33 @@ class Server(AtomicBroadcast):
   def handle_message(self, m):
       if m["type"] == OperationType.READ.value:
         (value, version) = self.db[m["item"]]
-        m = {"type": "read", "value": value, "version": version}
+        m = {"value": value, "version": version}
+        print("mensagem[=READ]")
         return m
       else:
         for item, value_version in m["rs"].items():
-          if self.db[item][0] > value_version[0]:
-            m = {"type": "abort"}
-            print("ABORT")
+          if self.db[item][1] > value_version['version']:
+            m = {"type": OperationType.ABORT.value}
+            print("mensagem[=ABORT]")
             return m
         for item, value in m["ws"].items():
           version = self.db[item][1] + 1 
           update = value
           self.db[item] = (update, version)
 
-        print("NÃO TEVE ABORT")
-        m = {"type": "commit"}
+        m = {"type": OperationType.COMMIT.value}
+        print("mensagem[=COMMIT]")
         return m
            
-           
-
-             
-
+          
 # Executa o servidor
 if __name__ == "__main__":
   # Seta os IP e Portas 
+  identificador = sys.argv[1]
   config = Config()
-  host = config.servers["SERVER1"]["HOST"]
-  tcp_port = config.servers["SERVER1"]["TCPPORT"]
-  udp_port = config.servers["SERVER1"]["UDPPORT"]
+  host = config.servers["SERVER"+identificador]["HOST"]
+  tcp_port = config.servers["SERVER"+identificador]["TCPPORT"]
+  udp_port = config.servers["SERVER"+identificador]["UDPPORT"]
 
   s1 = Server(host, tcp_port, udp_port)
   s1.start()
-  # s1.execute()

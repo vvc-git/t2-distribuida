@@ -3,7 +3,7 @@
 clear
 
 # Lista de portas a serem verificadas
-PORTS=(2001, 3001) # Adicione as portas desejadas aqui
+PORTS=(4000) # Adicione as portas desejadas aqui
 
 # Loop para verificar cada porta na lista
 for PORT in "${PORTS[@]}"; do

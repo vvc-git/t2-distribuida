@@ -14,6 +14,7 @@ class Operation:
         self.type = type
         self.item = item
         self.value = value
+        self.result = None
 
     # Getter para 'type'
     def get_type(self):

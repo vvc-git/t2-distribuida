@@ -92,9 +92,9 @@ if __name__ == "__main__":
   # Seta os IP e Portas 
   identificador = sys.argv[1]
   config = Config()
-  host = config.servers["SERVER"+identificador]["HOST"]
-  tcp_port = config.servers["SERVER"+identificador]["TCPPORT"]
-  udp_port = config.servers["SERVER"+identificador]["UDPPORT"]
+  host = config.servers["SERVER" + identificador]["HOST"]
+  tcp_port = config.servers["SERVER" + identificador]["TCPPORT"]
+  udp_port = config.servers["SERVER" + identificador]["UDPPORT"]
 
   s1 = Server(host, tcp_port, udp_port)
   s1.start()

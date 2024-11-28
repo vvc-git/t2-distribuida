@@ -3,7 +3,7 @@ import os
 import random
 import socket
 import threading
-import testes.teste1 as t
+import testes.teste2 as t
 from config import Config
 from transaction import *
 
@@ -89,7 +89,6 @@ class Client():
             # Se NÃO foi alterado localmente, então SOLICITA do servidor.
             else:
               data = self.read_from_sever(op.get_item())
-              print("Data recebida do server: ", data)
               self.rs[op.get_item()] = data
           
           # Se é um operação de COMMIT, precisamos fazer uma difusão atômica
@@ -115,7 +114,7 @@ def main():
 
     # Cria as threads para cada cliente
     for i in range(0, len(clientes)):
-        thread = threading.Thread(target=getattr(t, f"teste1client{i}"), args=(clientes[i],))
+        thread = threading.Thread(target=getattr(t, f"teste2client{i}"), args=(clientes[i],))
         threads.append(thread)
 
     # Inicia as threads

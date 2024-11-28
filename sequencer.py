@@ -55,9 +55,8 @@ class Sequencer():
 if __name__ == "__main__":
   # Seta os IP e Portas 
   config = Config()
-  host = config.sequencer["SEQUENCER"]["HOST"]
-  udp_port = config.sequencer["SEQUENCER"]["UDPPORT"]
+  sequencers = [Sequencer(config.sequencer[f"SEQUENCER{i}"]["HOST"], config.sequencer[f"SEQUENCER{i}"]["UDPPORT"], config.servers) for i in range(1)]
 
-  s1 = Sequencer(host, udp_port, config.servers)
-  s1.start()
+  for s in sequencers:
+    s.start()
   # s1.execute()

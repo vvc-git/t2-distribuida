@@ -21,7 +21,7 @@ def teste1client0(client):
     client.execute()
 
     # Aguardar 3 segundos entre as transações
-    time.sleep(3)  # Função sleep corretamente chamada
+    time.sleep(3)  
 
     # Define as operações das transações
     operacoes_transacao2 = [

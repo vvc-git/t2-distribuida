@@ -15,7 +15,6 @@ class Operation:
         self._type = type
         self._item = item
         self._value = value
-        self._result = None
 
     # Getter para 'type' usando @property
     @property
@@ -32,6 +31,12 @@ class Operation:
     def value(self):
         return self._value
 
+class Transaction:
+    def __init__(self, operations):
+        self.operations = operations
+        self.id = uuid.uuid4()
+        self._result = None
+    
     # Getter para 'result' usando @property
     @property
     def result(self):
@@ -42,7 +47,3 @@ class Operation:
     def result(self, value):
         self._result = value
 
-class Transaction:
-    def __init__(self, operations):
-        self.operations = operations
-        self.id = uuid.uuid4()

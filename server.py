@@ -28,7 +28,7 @@ class Server():
     self.tcp_socket.listen(5)  # Máximo de 5 conexões pendentes
 
     self.pending = []
-    self.nextdeliver = 1
+    self.sequence_number = 0
 
   # No TCP, recebe apenas leituras. 
   def handle_tcp(self):
@@ -47,14 +47,41 @@ class Server():
       print(f"Servidor UDP escutando em {self.host}:{self.udp_port}")
       while True:
           data, addr = self.udp_socket.recvfrom(1024)
-          m, seq_number, client_ip = json.loads(data.decode())
-          print(f"send[={m['type']}; de={addr[1]}; para={self.udp_port}, t.id={m['transaction_id']}]")
+          m, sequence_number, client_ip = json.loads(data.decode())
+          print(f"send[={m['type']}; de={client_ip[1]}; para={self.udp_port}, t.id={m['transaction_id']}]")
           
           h = self.handle_message(m)
 
           # Respondendo diretamente para o cliente.
           self.udp_socket.sendto(json.dumps(h).encode(), (client_ip[0], client_ip[1]))
           print(f"recv[={h['type']}; de={self.udp_port}; para={client_ip[1]}]")
+
+          self.deliver(m, sequence_number)
+
+  def deliver(self, content, sequence_number):
+    
+    # Se a mensagem for a próxima esperada, entregamos imediatamente
+    if sequence_number == self.sequence_number + 1:
+        print(f"deliverd[id={content['transaction_id']}, seq={sequence_number}]")
+        self.sequence_number += 1
+
+        # Depois de entregar a mensagem, verificamos se há mais mensagens para entregar
+        self._deliver_next()
+
+    # Caso contrário, armazenamos a mensagem no buffer
+    else:
+        # print(f"Server {self.udp_port} buffering message: {content} (out of order)")
+        self.pending.append((sequence_number, content))
+
+  def _deliver_next(self):
+      # Verifica se a próxima mensagem está no buffer
+      while (self.sequence_number + 1) in [seq for seq, _ in self.pending]:
+          # Encontra a próxima mensagem que pode ser entregue
+          next_message = next(msg for seq, msg in self.pending if seq == self.sequence_number + 1)
+          self.pending = [msg for msg in self.pending if msg[0] != self.sequence_number + 1]  # Remove a mensagem do buffer
+          print(f"deliverd[id={next_message['transaction_id']}, seq={self.sequence_number}]")
+          self.sequence_number += 1
+
 
   def start(self):
       # Criando threads para TCP e UDP
@@ -98,3 +125,6 @@ if __name__ == "__main__":
 
   s1 = Server(host, tcp_port, udp_port)
   s1.start()
+
+
+

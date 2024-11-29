@@ -3,7 +3,7 @@ import os
 import random
 import socket
 import threading
-import testes.teste2 as t
+import testes as t
 from config import Config
 from transaction import *
 
@@ -44,7 +44,7 @@ class Client():
           s.connect((host, port))
           
           # É bloqueante. Espera até que todos os dados sejam enviados.
-          print(f"send[={OperationType.READ.value}; de={self.tcp_port}; para={port}]")
+          print(f"send[={OperationType.READ.value}; de={s.getsockname()}; para={port}]")
           s.sendall(json.dumps(m).encode())
           
           
@@ -58,6 +58,8 @@ class Client():
       # Cria o socket (IPv4, TCP)
       with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
           
+          s.bind((self.host, self.udp_port))
+
           server = self.sequencer["SEQUENCER" + str(random.randint(0, len(self.sequencer)- 1))]
           host   = server['HOST']
           port   = server['UDPPORT']
@@ -65,12 +67,12 @@ class Client():
 
           # Envia os dados ao sequenciador
           s.sendto(json.dumps(m).encode(), (host, port))
-          print(f"send[={m['type']}; de={self.udp_port}; para={port}, t.id={m['transaction_id']}]")
+          print(f"send[={m['type']}; de={s.getsockname()[1]}; para={port}, t.id={m['transaction_id']}]")
           
           # Recebe a resposta do servidor
           data, addr = s.recvfrom(1024)  # O segundo valor é o endereço do remetente
           response = json.loads(data.decode())
-          print(f"recv[={response['type']}, de={addr[1]}, para={self.udp_port}]")
+          print(f"recv[={response['type']}, de={addr[1]}, para={s.getsockname()[1]}]")
           return response
 
     
@@ -115,7 +117,7 @@ def main():
 
     # Cria as threads para cada cliente
     for i in range(0, len(clientes)):
-        thread = threading.Thread(target=getattr(t, f"teste2client{i}"), args=(clientes[i],))
+        thread = threading.Thread(target=getattr(t, f"teste3client{i}"), args=(clientes[i],))
         threads.append(thread)
 
     # Inicia as threads

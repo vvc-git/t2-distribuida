@@ -3,6 +3,7 @@ import socket
 import threading
 
 from config import Config
+from messages import CommitRequestMessage
 
 
 class Sequencer():
@@ -21,26 +22,23 @@ class Sequencer():
     self.servers = servers
 
   def handle_message(self, m, addr):
+    m.seq = self.seq_number
+    m.origin = addr
+    
     for ipport in self.servers.values():
       host = ipport["HOST"]
       port = ipport["UDPPORT"]
-      self.udp_socket.sendto(json.dumps((m, self.seq_number, addr)).encode(), (host, port))
-      print(f"send[de={addr[1]}; para={port}, t.id={m['transaction_id']}, seq={self.seq_number}]")
+      self.udp_socket.sendto(m.to_json().encode(), (host, port))
+      print(f"send[de={addr[1]}; para={port}, t.id={m.tid}, seq={self.seq_number}]")
     self.seq_number += 1
 
 
-
   def handle_udp(self):
-    print(f"Sequenciador UDP escutando em {self.host}:{self.udp_port}")
     while True:
-        data, addr = self.udp_socket.recvfrom(1024)
-        m = json.loads(data.decode())
-        self.handle_message(m, addr)
-
-        # ----------- SEQUENCIADOR NÃO RESPONDE --------------
-        # response = json.dumps(self.handle_message(m, addr))
-        # print("response", response)
-        # self.udp_socket.sendto(response.encode(), addr)
+      data, addr = self.udp_socket.recvfrom(1024)
+      print(f"sequenciador addr do cliente {addr}")
+      m = CommitRequestMessage.from_json(data.decode())
+      self.handle_message(m, addr)
 
   def start(self):
     # Criando threads para TCP e UDP

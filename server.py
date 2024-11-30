@@ -5,6 +5,7 @@ import socket
 import json
 import threading
 import sys
+from messages import AbortResponseMessage, CommitRequestMessage, CommitResponseMessage, ReadRequestMessage, ReadResponseMessage
 
 
 class Server():
@@ -32,37 +33,43 @@ class Server():
 
   # No TCP, recebe apenas leituras. 
   def handle_tcp(self):
-        print(f"Servidor TCP escutando em {self.host}:{self.tcp_port}")
-        while True:
-            conn, addr = self.tcp_socket.accept()
-            data = conn.recv(1024).decode()
-            m = json.loads(data)
-            print(f"send[=read; de={addr[1]}; para={self.tcp_port}]")
-            response = json.dumps(self.handle_message(m))
-            conn.sendall(response.encode())
-            print(f"recv[=read; de={self.tcp_port}; para={addr[1]}]")
-            conn.close()
+    print(f"Servidor TCP escutando em {self.host}:{self.tcp_port}")
+    while True:
+      conn, addr = self.tcp_socket.accept()
+
+      # Recebe uma requisição para leitura no bd
+      data = conn.recv(1024).decode()
+      m = ReadRequestMessage.from_json(data)
+      print(f"send[=read; de={addr[1]}; para={self.tcp_port}]")
+
+      # Responde com o valor do bd
+      response = self.handle_message(m).to_json()
+      conn.sendall(response.encode())
+      print(f"recv[=read; de={self.tcp_port}; para={addr[1]}]")
+
+      # Fecha a conexão
+      conn.close()
 
   def handle_udp(self):
-      print(f"Servidor UDP escutando em {self.host}:{self.udp_port}")
-      while True:
-          data, addr = self.udp_socket.recvfrom(1024)
-          m, sequence_number, client_ip = json.loads(data.decode())
-          print(f"send[={m['type']}; de={client_ip[1]}; para={self.udp_port}, t.id={m['transaction_id']}]")
-          
-          h = self.handle_message(m)
+    print(f"Servidor UDP escutando em {self.host}:{self.udp_port}")
+    while True:
+        data, _ = self.udp_socket.recvfrom(1024)
+        m = CommitRequestMessage.from_json(data.decode())
+        print(f"send[={m.type}; de=; para={self.udp_port}, t.id={m.tid}]")
+        
+        h = self.handle_message(m)
 
-          # Respondendo diretamente para o cliente.
-          self.udp_socket.sendto(json.dumps(h).encode(), (client_ip[0], client_ip[1]))
-          print(f"recv[={h['type']}; de={self.udp_port}; para={client_ip[1]}]")
+        # Respondendo diretamente para o cliente.
+        self.udp_socket.sendto(h.to_json().encode(), (m.origin[0], m.origin[1]))
+        print(f"recv[={h.type}; de={self.udp_port}; para=]")
 
-          self.deliver(m, sequence_number)
+        self.deliver(m)
 
-  def deliver(self, content, sequence_number):
+  def deliver(self, message):
     
     # Se a mensagem for a próxima esperada, entregamos imediatamente
-    if sequence_number == self.sequence_number + 1:
-        print(f"deliverd[id={content['transaction_id']}, seq={sequence_number}]")
+    if message.seq == self.sequence_number + 1:
+        print(f"deliverd[id={message.tid}, seq={message.seq}]")
         self.sequence_number += 1
 
         # Depois de entregar a mensagem, verificamos se há mais mensagens para entregar
@@ -71,15 +78,15 @@ class Server():
     # Caso contrário, armazenamos a mensagem no buffer
     else:
         # print(f"Server {self.udp_port} buffering message: {content} (out of order)")
-        self.pending.append((sequence_number, content))
+        self.pending.append(message)
 
   def _deliver_next(self):
       # Verifica se a próxima mensagem está no buffer
-      while (self.sequence_number + 1) in [seq for seq, _ in self.pending]:
+      while (self.sequence_number + 1) in [msg.seq for msg in self.pending]:
           # Encontra a próxima mensagem que pode ser entregue
-          next_message = next(msg for seq, msg in self.pending if seq == self.sequence_number + 1)
-          self.pending = [msg for msg in self.pending if msg[0] != self.sequence_number + 1]  # Remove a mensagem do buffer
-          print(f"deliverd[id={next_message['transaction_id']}, seq={self.sequence_number}]")
+          next_message = next(msg for msg in self.pending if msg.seq == self.sequence_number + 1)
+          self.pending = [msg for msg in self.pending if msg.seq != self.sequence_number + 1]  # Remove a mensagem do buffer
+          print(f"deliverd[id={next_message.tid}, seq={self.sequence_number}]")
           self.sequence_number += 1
 
 
@@ -97,22 +104,28 @@ class Server():
       udp_thread.join()
 
   def handle_message(self, m):
-      if m["type"] == OperationType.READ.value:
-        (value, version) = self.db[m["item"]]
-        m = {"value": value, "version": version}
-        return m
+
+      # Se for leitura, pega do banco retorna e retorna para o cliente
+      if isinstance(m, ReadRequestMessage):
+        (value, version) = self.db[m.item]
+        return ReadResponseMessage(value, version)
+      
+      # Se for commit, realiza algumas verificações
       else:
-        for item, value_version in m["rs"].items():
+        # Para cada operação da transação,
+        # Verifica se utilizou um valor antigo para suas manipulações.
+        for item, value_version in m.rs.items():
+          # Se utilizou um valor antigo, aborta.
           if self.db[item][1] > value_version['version']:
-            m = {"type": OperationType.ABORT.value}
-            return m
-        for item, value in m["ws"].items():
+            return AbortResponseMessage(m.tid)
+        
+        # Se NÃO utilizou um valor antigo, atualiza o banco.
+        for item, value in m.ws.items():
           version = self.db[item][1] + 1 
           update = value
           self.db[item] = (update, version)
 
-        m = {"type": OperationType.COMMIT.value}
-        return m
+        return CommitResponseMessage(m.tid)
           
 # Executa o servidor
 if __name__ == "__main__":

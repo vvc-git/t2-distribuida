@@ -17,11 +17,11 @@ class SocketHandler:
     def create(self, protocol):
       if protocol == ProtocolType.TCP:
         socket = s.socket(s.AF_INET, s.SOCK_STREAM)
-        socket.bind((self.host, self.tcp_port))
+        # socket.bind((self.host, self.tcp_port))
         return socket
       elif protocol == ProtocolType.UDP:
         socket = s.socket(s.AF_INET, s.SOCK_DGRAM)
-        socket.bind((self.host, self.udp_port))
+        # socket.bind((self.host, self.udp_port))
         return socket
 
 
@@ -32,7 +32,7 @@ class SocketHandler:
 
       # É bloqueante. Espera até que todos os dados sejam enviados.
       print(f"send[={OperationType.READ.value}; de={socket.getsockname()[1]}; para={port}]")
-      socket.sendall(json.dumps(message).encode())
+      socket.sendall(message.to_json().encode())
 
       return socket
     
@@ -40,8 +40,8 @@ class SocketHandler:
       # Cria o socket e conecta ao servidor
       socket = self.create(ProtocolType.UDP)
 
-      socket.sendto(json.dumps(message).encode(), (host, port))
-      print(f"send[={message['type']}; de={socket.getsockname()[1]}; para={port}, t.id={message['transaction_id']}]")
+      socket.sendto(message.to_json().encode(), (host, port))
+      print(f"send[={message.type}; de={socket.getsockname()[1]}; para={port}, t.id={message.tid}]")
 
       return socket
 

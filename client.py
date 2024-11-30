@@ -52,11 +52,15 @@ class Client(sh.SocketHandler):
     def recv(self, socket, protocol):
       # Resposta da leitura do banco
       if protocol == sh.ProtocolType.TCP:  
-        return self.recv_tcp(socket)
+        data = self.recv_tcp(socket)
+        socket.close()
+        return data
       
       # Resposta da commit (Aceitação ou Abort)
-      if protocol == sh.ProtocolType.UDP:  
-        return self.recv_udp(socket)
+      if protocol == sh.ProtocolType.UDP:
+        data = self.recv_udp(socket)
+        socket.close()
+        return data
     
     def execute(self):
       for op in self.transaction.operations:
@@ -76,7 +80,6 @@ class Client(sh.SocketHandler):
             pass
           # Se NÃO foi alterado localmente, então SOLICITA do servidor.
           else:
-            # m = {"type": OperationType.READ.value, "item": op.item, "cid": self.cid}
             m = ReadRequestMessage(op.item, self.cid)
             socket = self.send(m)
             data   = self.recv(socket, sh.ProtocolType.TCP)
@@ -84,15 +87,14 @@ class Client(sh.SocketHandler):
         
         # Se é um operação de COMMIT, precisamos fazer uma difusão atômica
         elif op.type == OperationType.COMMIT:
-          # m = {"type": OperationType.COMMIT.value, "cid": self.cid, "transaction_id": int(self.transaction.id) ,"rs": self.rs, "ws": self.ws}
           m = CommitRequestMessage(self.cid, int(self.transaction.id), self.rs, self.ws)
           socket = self.send(m)
-          data   = self.recv(socket, sh.ProtocolType.UDP)
+          data, _  = self.recv(socket, sh.ProtocolType.UDP)
           if self.transaction.result != OperationType.ABORT.value:
             self.ws = {}
             self.rs = {}
 
-        
+
         else: 
           self.transaction.result = OperationType.ABORT
         

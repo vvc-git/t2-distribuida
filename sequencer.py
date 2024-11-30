@@ -4,51 +4,50 @@ import threading
 
 from config import Config
 from messages import CommitRequestMessage
+from socket_handler import ProtocolType, SocketHandler
 
 
-class Sequencer():
-  def __init__(self, host, udp_port, servers):
-    super().__init__()
-    self.host = host
-    self.udp_port = udp_port
+class Sequencer(SocketHandler):
+  def __init__(self, host, port, servers):
+    super().__init__(host=host, udp=port)
+    self.socket = self.create(ProtocolType.UDP)
+    self.socket.bind((self.host, self.udp_port))
+    self.servers = servers
     self.seq_number = 1
 
-    # Criando sockets TCP e UDP
-    self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    # Bind nos sockets
-    self.udp_socket.bind((self.host, self.udp_port))
-
-    self.servers = servers
-
-  def handle_message(self, m, addr):
+  def _add_seq_origin(self, m, addr):
+    # Adiciona o numero de sequencia e a origem do cliente para resposta ser direta
+    m = CommitRequestMessage.from_json(m)
     m.seq = self.seq_number
     m.origin = addr
     
+    return m
+
+  def _foward_to_servers(self, m):
+    # Reencaminha para todos os servidores.
     for ipport in self.servers.values():
       host = ipport["HOST"]
       port = ipport["UDPPORT"]
-      self.udp_socket.sendto(m.to_json().encode(), (host, port))
-      print(f"send[de={addr[1]}; para={port}, t.id={m.tid}, seq={self.seq_number}]")
+      self.send_udp(m, host, port, self.socket)
     self.seq_number += 1
 
 
-  def handle_udp(self):
+  def run(self):
+    print(f"Servidor Sequenciador escutando em: {self.host}:{self.udp_port}")
     while True:
-      data, addr = self.udp_socket.recvfrom(1024)
-      print(f"sequenciador addr do cliente {addr}")
-      m = CommitRequestMessage.from_json(data.decode())
-      self.handle_message(m, addr)
+      m_raw, addr = self.recv_udp(self.socket)
+      m = self._add_seq_origin(m_raw, addr)
+      self._foward_to_servers(m)
 
   def start(self):
     # Criando threads para TCP e UDP
-    udp_thread = threading.Thread(target=self.handle_udp)
+    thread = threading.Thread(target=self.run)
 
     # Iniciando as threads
-    udp_thread.start()
+    thread.start()
 
     # Aguardando o término das threads (opcional)
-    udp_thread.join()
+    thread.join()
 
 # Executa o servidor
 if __name__ == "__main__":
@@ -58,4 +57,3 @@ if __name__ == "__main__":
 
   for s in sequencers:
     s.start()
-  # s1.execute()

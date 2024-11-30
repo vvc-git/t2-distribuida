@@ -1,5 +1,8 @@
 from enum import Enum
+import json
 import socket as s
+
+from transaction import OperationType
 
 class ProtocolType(Enum):
    TCP = "TCP"
@@ -22,24 +25,35 @@ class SocketHandler:
         return socket
 
 
-    def send(self, protocol, message, dest_ip, dest_port):
-      """
-      Envia uma mensagem para o destino (aplicável tanto para TCP quanto UDP).
-      Este método pode ser sobrescrito nas subclasses para comportamentos específicos.
-      """
-      raise NotImplementedError("Método send_message deve ser implementado na classe filha")
+    def send_tcp(self, message, host, port):
+      # Cria o socket e conecta ao servidor
+      socket = self.create(ProtocolType.TCP)
+      socket.connect((host, port))
+
+      # É bloqueante. Espera até que todos os dados sejam enviados.
+      print(f"send[={OperationType.READ.value}; de={socket.getsockname()[1]}; para={port}]")
+      socket.sendall(json.dumps(message).encode())
+
+      return socket
     
-    def recv(self):
-      """
-      Envia uma mensagem para o destino (aplicável tanto para TCP quanto UDP).
-      Este método pode ser sobrescrito nas subclasses para comportamentos específicos.
-      """
-      raise NotImplementedError("Método receive_message deve ser implementado na classe filha")
+    def send_udp(self, message, host, port):
+      # Cria o socket e conecta ao servidor
+      socket = self.create(ProtocolType.UDP)
 
+      socket.sendto(json.dumps(message).encode(), (host, port))
+      print(f"send[={message['type']}; de={socket.getsockname()[1]}; para={port}, t.id={message['transaction_id']}]")
 
-    def start_listening(self, buffer_size=1024):
-      """
-      Este método pode ser sobrescrito nas subclasses para lidar com conexões e mensagens.
-      """
-      raise NotImplementedError("Método start_listening deve ser implementado na classe filha")
-  
+      return socket
+
+    def recv_tcp(self, socket):
+      data = json.loads(socket.recv(1024).decode())
+      print(f"recv[={OperationType.READ.value}; de={socket.getsockname()[1]}; para={self.tcp_port}]")
+      socket.close()
+      return data
+    
+    def recv_udp(self, socket):
+      data, addr = socket.recvfrom(1024) 
+      response = json.loads(data.decode())
+      print(f"recv[={response['type']}, de={addr[1]}, para={socket.getsockname()[1]}]")
+      socket.close()
+      return response

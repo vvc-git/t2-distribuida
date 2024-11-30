@@ -1,5 +1,6 @@
 from time import sleep
 from config import Config
+from socket_handler import ProtocolType, SocketHandler
 from transaction import *
 import socket
 import json
@@ -8,18 +9,14 @@ import sys
 from messages import AbortResponseMessage, CommitRequestMessage, CommitResponseMessage, ReadRequestMessage, ReadResponseMessage
 
 
-class Server():
+class Server(SocketHandler):
   def __init__(self, host, tcp_port, udp_port):
-    super().__init__()
-    self.last_commit = 0
+    super().__init__(host=host, tcp=tcp_port, udp=udp_port)
     self.db = {"chave1": ("Teste", 0), "chave2": ("Teste", 0)}
-    self.host = host
-    self.tcp_port = tcp_port
-    self.udp_port = udp_port
 
     # Criando sockets TCP e UDP
-    self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self.tcp_socket = self.create(ProtocolType.TCP)
+    self.udp_socket = self.create(ProtocolType.UDP)
 
     # Bind nos sockets
     self.tcp_socket.bind((self.host, self.tcp_port))
@@ -32,8 +29,8 @@ class Server():
     self.sequence_number = 0
 
   # No TCP, recebe apenas leituras. 
-  def handle_tcp(self):
-    print(f"Servidor TCP escutando em {self.host}:{self.tcp_port}")
+  def handle_read(self):
+    print(f"Servidor escutando requisições de LEITURA em {self.host}:{self.tcp_port}")
     while True:
       conn, addr = self.tcp_socket.accept()
 
@@ -50,8 +47,8 @@ class Server():
       # Fecha a conexão
       conn.close()
 
-  def handle_udp(self):
-    print(f"Servidor UDP escutando em {self.host}:{self.udp_port}")
+  def handle_commit(self):
+    print(f"Servidor escutando requisições de COMMIT em {self.host}:{self.udp_port}")
     while True:
         data, _ = self.udp_socket.recvfrom(1024)
         m = CommitRequestMessage.from_json(data.decode())
@@ -92,8 +89,8 @@ class Server():
 
   def start(self):
       # Criando threads para TCP e UDP
-      tcp_thread = threading.Thread(target=self.handle_tcp)
-      udp_thread = threading.Thread(target=self.handle_udp)
+      tcp_thread = threading.Thread(target=self.handle_read)
+      udp_thread = threading.Thread(target=self.handle_commit)
 
       # Iniciando as threads
       tcp_thread.start()

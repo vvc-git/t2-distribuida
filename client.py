@@ -18,7 +18,6 @@ class Client(sh.SocketHandler):
       self.sequencer = sequencer
       self.ws = {}  # Conjunto de escritas
       self.rs = {}  # Conjunto de leituras
-      self.result = None
     
     @property
     def transaction(self):

@@ -33,3 +33,11 @@ def teste1client0(client):
     t2 = Transaction(operacoes_transacao2)
     client.transaction = t2
     client.execute()
+
+'''Comportamento padrão do sequenciador'''
+def teste1sequencer0(sequencer):
+    print(f"Servidor Sequenciador escutando em: {sequencer.host}:{sequencer.udp_port}")
+    while True:
+      m_raw, addr = sequencer.recv_udp(sequencer.socket)
+      m = sequencer._add_seq_origin(m_raw, addr)
+      sequencer._foward_to_servers(m)

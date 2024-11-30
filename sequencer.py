@@ -1,7 +1,7 @@
 import json
 import socket
 import threading
-
+import testes as t
 from config import Config
 from messages import CommitRequestMessage
 from socket_handler import ProtocolType, SocketHandler
@@ -20,6 +20,7 @@ class Sequencer(SocketHandler):
     m = CommitRequestMessage.from_json(m)
     m.seq = self.seq_number
     m.origin = addr
+    self.seq_number += 1
     
     return m
 
@@ -29,31 +30,29 @@ class Sequencer(SocketHandler):
       host = ipport["HOST"]
       port = ipport["UDPPORT"]
       self.send_udp(m, host, port, self.socket)
-    self.seq_number += 1
-
-
-  def run(self):
-    print(f"Servidor Sequenciador escutando em: {self.host}:{self.udp_port}")
-    while True:
-      m_raw, addr = self.recv_udp(self.socket)
-      m = self._add_seq_origin(m_raw, addr)
-      self._foward_to_servers(m)
-
-  def start(self):
-    # Criando threads para TCP e UDP
-    thread = threading.Thread(target=self.run)
-
-    # Iniciando as threads
-    thread.start()
-
-    # Aguardando o término das threads (opcional)
-    thread.join()
+    
 
 # Executa o servidor
 if __name__ == "__main__":
+
   # Seta os IP e Portas 
   config = Config()
+
+  # Lista de clientes - aqui você pode configurar a quantidade de clientes
   sequencers = [Sequencer(config.sequencer[f"SEQUENCER{i}"]["HOST"], config.sequencer[f"SEQUENCER{i}"]["UDPPORT"], config.servers) for i in range(1)]
 
-  for s in sequencers:
-    s.start()
+  # Lista para armazenar as threads
+  threads = []
+
+  # Cria as threads para cada cliente
+  for i in range(0, len(sequencers)):
+      thread = threading.Thread(target=getattr(t, f"teste3sequencer{i}"), args=(sequencers[i],))
+      threads.append(thread)
+
+  # Inicia as threads
+  for thread in threads:
+      thread.start()
+
+  # Aguarda todas as threads terminarem
+  for thread in threads:
+      thread.join()

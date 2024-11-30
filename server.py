@@ -26,7 +26,7 @@ class Server(SocketHandler):
     self.tcp_socket.listen(5)  # Máximo de 5 conexões pendentes
 
     self.pending = []
-    self.sequence_number = 0
+    self.sequence_number = 1
 
   # No TCP, recebe apenas leituras. 
   def handle_read(self):
@@ -50,40 +50,48 @@ class Server(SocketHandler):
   def handle_commit(self):
     print(f"Servidor escutando requisições de COMMIT em {self.host}:{self.udp_port}")
     while True:
-        data, _ = self.udp_socket.recvfrom(1024)
-        m = CommitRequestMessage.from_json(data.decode())
-        print(f"send[={m.type}; de=; para={self.udp_port}, t.id={m.tid}]")
+        m_raw, _ = self.recv_udp(self.udp_socket)
+        m = CommitRequestMessage.from_json(m_raw)
         
-        h = self.handle_message(m)
+        if (self.deliver(m)):
+          h = self.handle_message(m)
 
-        # Respondendo diretamente para o cliente.
-        self.udp_socket.sendto(h.to_json().encode(), (m.origin[0], m.origin[1]))
-        print(f"recv[={h.type}; de={self.udp_port}; para=]")
+          #  Respondendo diretamente para o cliente.
+          self.send_udp(h, m.origin[0], m.origin[1], self.udp_socket)
 
-        self.deliver(m)
 
   def deliver(self, message):
     
     # Se a mensagem for a próxima esperada, entregamos imediatamente
-    if message.seq == self.sequence_number + 1:
+    if message.seq == self.sequence_number:
         print(f"deliverd[id={message.tid}, seq={message.seq}]")
         self.sequence_number += 1
 
         # Depois de entregar a mensagem, verificamos se há mais mensagens para entregar
         self._deliver_next()
+        return True
 
     # Caso contrário, armazenamos a mensagem no buffer
     else:
-        # print(f"Server {self.udp_port} buffering message: {content} (out of order)")
         self.pending.append(message)
+        return False
 
   def _deliver_next(self):
       # Verifica se a próxima mensagem está no buffer
-      while (self.sequence_number + 1) in [msg.seq for msg in self.pending]:
+      while (self.sequence_number) in [msg.seq for msg in self.pending]:
           # Encontra a próxima mensagem que pode ser entregue
-          next_message = next(msg for msg in self.pending if msg.seq == self.sequence_number + 1)
-          self.pending = [msg for msg in self.pending if msg.seq != self.sequence_number + 1]  # Remove a mensagem do buffer
+          next_message = next(msg for msg in self.pending if msg.seq == self.sequence_number)
+
+          # Remove a mensagem do buffer
+          self.pending = [msg for msg in self.pending if msg.seq != self.sequence_number]  
           print(f"deliverd[id={next_message.tid}, seq={self.sequence_number}]")
+          
+          # Verifica se não tem leituras desatualizadas
+          h = self.handle_message(next_message)
+
+          #  Respondendo diretamente para o cliente.
+          self.send_udp(h, next_message.origin[0], next_message.origin[1], self.udp_socket)
+
           self.sequence_number += 1
 
 

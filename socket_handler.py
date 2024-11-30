@@ -38,6 +38,7 @@ class SocketHandler:
       # Cria o socket
       if not(socket):
         socket = self.create(ProtocolType.UDP)
+        socket.setblocking(False)
 
       socket.sendto(message.to_json().encode(), (host, port))
       print(f"send[de={socket.getsockname()[1]}; para={port}, t.id={message.tid}]")

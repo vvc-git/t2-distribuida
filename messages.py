@@ -71,17 +71,17 @@ class CommitRequestMessage(Message):
 class CommitResponseMessage(Message):
     def __init__(self, tid):
       super().__init__(OperationType.COMMIT.value)
-      self.transaction_id = tid
+      self.tid = tid
 
     def __str__(self):
-        return f"CommitResponseMessage(transaction_id={self.transaction_id})"
+        return f"CommitResponseMessage(tid={self.tid})"
 
     @classmethod
     def from_json(cls, json_str):
         # Converte uma string JSON em um objeto CommitMessage
         data = json.loads(json_str)
         # Cria e retorna uma instância da classe CommitMessage usando os dados deserializados
-        return cls(transaction_id=data['transaction_id'])
+        return cls(tid=data['tid'])
     
 # Classe especializada CommitMessage
 class AbortResponseMessage(Message):

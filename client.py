@@ -3,7 +3,7 @@ import os
 import random
 import socket
 import threading
-from messages import CommitRequestMessage, ReadRequestMessage
+from messages import CommitRequestMessage, CommitResponseMessage, ReadRequestMessage
 import socket_handler as sh
 import testes as t
 from config import Config
@@ -18,6 +18,7 @@ class Client(sh.SocketHandler):
       self.sequencer = sequencer
       self.ws = {}  # Conjunto de escritas
       self.rs = {}  # Conjunto de leituras
+      self.pedding_commit = []
     
     @property
     def transaction(self):
@@ -57,9 +58,19 @@ class Client(sh.SocketHandler):
       
       # Resposta da commit (Aceitação ou Abort)
       if protocol == sh.ProtocolType.UDP:
-        data = self.recv_udp(socket)
-        socket.close()
-        return data
+        try:
+          # Tenta receber dados (não-bloqueante)
+          data, _ = self.recv_udp(socket)
+          socket.close()
+          return data
+        except BlockingIOError:
+            # Não há dados disponíveis no momento
+            self.pedding_commit.append(socket)
+            return None
+
+        # data = self.recv_udp(socket)
+        # socket.close()
+        # return data
     
     def execute(self):
       for op in self.transaction.operations:
@@ -88,16 +99,37 @@ class Client(sh.SocketHandler):
         elif op.type == OperationType.COMMIT:
           m = CommitRequestMessage(self.cid, int(self.transaction.id), self.rs, self.ws)
           socket = self.send(m)
-          data, _  = self.recv(socket, sh.ProtocolType.UDP)
-          if self.transaction.result != OperationType.ABORT.value:
-            self.ws = {}
-            self.rs = {}
-
+          data  = self.recv(socket, sh.ProtocolType.UDP)
+          if data is not None:
+            if self.transaction.result != OperationType.ABORT.value:
+              self.ws = {}
+              self.rs = {}
 
         else: 
           self.transaction.result = OperationType.ABORT
         
         print("")
+
+    def show_late_delivered(self):
+      while True:
+        lista = self.pedding_commit
+
+        if not lista:
+            return False
+
+        for p in lista[:]:
+            try:
+              raw, _ = self.recv_udp(p)
+              data = CommitResponseMessage.from_json(raw)
+            except BlockingIOError:
+              data = None
+
+            if data is not None:
+                print(f"Cliente {self.cid} recebeu confirmação para a transação {data.tid}")
+                lista.remove(p)
+
+            if len(lista) <= 0:
+                return False
 
 def main():
 
@@ -105,14 +137,14 @@ def main():
     config = Config()
 
     # Lista de clientes - aqui você pode configurar a quantidade de clientes
-    clientes = [Client(config.clients[f"CLIENT{i}"], config.servers, config.sequencer) for i in range(1)]
+    clientes = [Client(config.clients[f"CLIENT{i}"], config.servers, config.sequencer) for i in range(2)]
 
     # Lista para armazenar as threads
     threads = []
 
     # Cria as threads para cada cliente
     for i in range(0, len(clientes)):
-        thread = threading.Thread(target=getattr(t, f"teste1client{i}"), args=(clientes[i],))
+        thread = threading.Thread(target=getattr(t, f"teste3client{i}"), args=(clientes[i],))
         threads.append(thread)
 
     # Inicia as threads

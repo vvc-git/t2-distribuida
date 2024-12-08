@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
   # Cria as threads para cada cliente
   for i in range(0, len(sequencers)):
-      thread = threading.Thread(target=getattr(t, f"teste3sequencer{i}"), args=(sequencers[i],))
+      thread = threading.Thread(target=getattr(t, f"teste4sequencer{i}"), args=(sequencers[i],))
       threads.append(thread)
 
   # Inicia as threads

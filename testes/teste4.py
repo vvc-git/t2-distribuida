@@ -4,14 +4,14 @@ from messages import CommitResponseMessage
 from transaction import Operation, OperationType, Transaction
 import socket_handler as sh
 """
-Teste 2:
+Teste 4:
 - O Cliente 0 faz C. 
 - O Cliente 1 faz C. 
-- O Sequenciador recebe a mesagem de 0 primeiro e 1 em segundo. Para o teste, altera a ordem de envio para os servidores.
+- O Sequenciador recebe a mesagem de 0 primeiro e 1 em segundo. Para o teste, não envia a mensagem para o Servidor 0 (Forçando o Servidor 1 repassar)
 - O Servidor recebe mas não entrega até estar na ordem
 - Resultado: Abort da transação.
 """
-def teste3client0(client):
+def teste4client0(client):
     # Define as operações das transações
     operacoes_transacao1 = [
       Operation(OperationType.COMMIT),
@@ -23,7 +23,7 @@ def teste3client0(client):
     client.show_late_delivered()
            
            
-def teste3client1(client):
+def teste4client1(client):
     # Define as operações das transações
     time.sleep(1)
     operacoes_transacao1 = [
@@ -36,7 +36,7 @@ def teste3client1(client):
     client.show_late_delivered()
 
 
-def teste3sequencer0(sequencer):
+def teste4sequencer0(sequencer):
     print(f"Servidor Sequenciador escutando em: {sequencer.host}:{sequencer.udp_port}")
     lista_mensagens = list()
 
@@ -44,14 +44,10 @@ def teste3sequencer0(sequencer):
     while True:
       m_raw, addr = sequencer.recv_udp(sequencer.socket)
       m = sequencer._add_seq_origin(m_raw, addr)
-      lista_mensagens.append(m)
 
-      if len(lista_mensagens) > 1:
-         break
-    
-    time.sleep(2)
-    # Rencaminhas em uma ordem diferente 
-    order = [1, 0]
-    for i in order:
-      sequencer._foward_to_servers(lista_mensagens[i])
-      time.sleep(2)
+      # Reencaminha para todos os servidores.
+      for ipport in sequencer.servers.values():
+        host = ipport["HOST"]
+        port = ipport["UDPPORT"]
+        if port % 2 == 0:
+          sequencer.send_udp(m, host, port, sequencer.socket)

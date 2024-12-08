@@ -10,7 +10,7 @@ from messages import AbortResponseMessage, CommitRequestMessage, CommitResponseM
 
 
 class Server(SocketHandler):
-  def __init__(self, host, tcp_port, udp_port):
+  def __init__(self, host, tcp_port, udp_port, servers):
     super().__init__(host=host, tcp=tcp_port, udp=udp_port)
     self.db = {"chave1": ("Teste", 0), "chave2": ("Teste", 0)}
 
@@ -25,8 +25,10 @@ class Server(SocketHandler):
     # Configurando o socket TCP para escutar conexões
     self.tcp_socket.listen(5)  # Máximo de 5 conexões pendentes
 
+    self.received = []
     self.pending = []
     self.sequence_number = 1
+    self.servers = servers
 
   # No TCP, recebe apenas leituras. 
   def handle_read(self):
@@ -50,18 +52,35 @@ class Server(SocketHandler):
   def handle_commit(self):
     print(f"Servidor escutando requisições de COMMIT em {self.host}:{self.udp_port}")
     while True:
-        m_raw, _ = self.recv_udp(self.udp_socket)
+        m_raw, addr = self.recv_udp(self.udp_socket)
         m = CommitRequestMessage.from_json(m_raw)
         
-        if (self.deliver(m)):
+        if (self.deliver(m, addr)):
           h = self.handle_message(m)
 
           #  Respondendo diretamente para o cliente.
           self.send_udp(h, m.origin[0], m.origin[1], self.udp_socket)
+        
+        else:
+          print(f"Servidor recebe fora de ordem: tid={m.tid} seq={m.seq}")
+           
 
 
-  def deliver(self, message):
-    
+  def deliver(self, message, addr):
+
+    if message not in self.received:
+      self.received.append(message)
+
+      for ipport in self.servers.values():
+        host = ipport["HOST"]
+        port = ipport["UDPPORT"]
+        
+        # Caso 1: Não envia para servidores que estão retransmitindo a mensagem (Eles já há tem)
+        # Caso 2: Não envia para si mesmo para evitar loops
+        if (int(addr[1]) != (port)) and (int(self.udp_port) != (port)):
+          self.send_udp(message, host, port, self.udp_socket)
+         
+
     # Se a mensagem for a próxima esperada, entregamos imediatamente
     if message.seq == self.sequence_number:
         print(f"deliverd[id={message.tid}, seq={message.seq}]")
@@ -141,7 +160,7 @@ if __name__ == "__main__":
   tcp_port = config.servers["SERVER" + identificador]["TCPPORT"]
   udp_port = config.servers["SERVER" + identificador]["UDPPORT"]
 
-  s1 = Server(host, tcp_port, udp_port)
+  s1 = Server(host, tcp_port, udp_port, config.servers)
   s1.start()
 
 
